@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Hive",
+    "slug": "hive",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFB7C5"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hive.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFB7C5"
+      },
+      "package": "com.hive.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "sdkVersion": "54.0.0",
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
