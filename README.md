@@ -1,321 +1,188 @@
-# 🐝 Hive - Connect Your Crew, Your Way
+# Hive Backend API
 
-A beautiful, feature-rich messaging app with a baby pink theme built with React Native (Expo) and Node.js. Hive allows you to connect with friends, family, and colleagues through private chats and group conversations.
+A real-time messaging backend built with Node.js, Express, Socket.IO, and MongoDB.
 
 ## ✨ Features
 
-### Authentication & Profile
-- ✅ Splash screen with smooth animations
-- ✅ User registration with real-time email validation
-- ✅ Login with email or mobile number
-- ✅ JWT-based authentication
-- ✅ Profile management (name, gender, profession, photo)
-- ✅ Profile photo upload with Cloudinary integration
+✅ User authentication (signup/login with JWT)  
+✅ User profiles with photo uploads to Cloudinary  
+✅ Friend management  
+✅ One-to-one and group chats  
+✅ Real-time messaging with Socket.IO  
+✅ Message reactions (emoji)  
+✅ Reply to messages  
+✅ Delete messages (for self or everyone)  
+✅ Typing indicators  
+✅ Image sharing  
 
-### Social Features
-- ✅ Browse all registered users
-- ✅ Add/remove friends
-- ✅ Friends list management
+## 🛠 Tech Stack
 
-### Messaging
-- ✅ Real-time messaging with Socket.IO
-- ✅ Private 1-on-1 chats
-- ✅ Group chats with multiple users
-- ✅ Text messages
-- ✅ Image sharing
-- ✅ Message reactions (❤️, 👍, 😂, 😮, 😢, 🔥)
-- ✅ Reply to messages
-- ✅ Delete for me
-- ✅ Delete for everyone (within 5 minutes)
-- ✅ Typing indicators
-- ✅ Chat history
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **Real-time**: Socket.IO
+- **Database**: MongoDB with Mongoose
+- **Authentication**: JWT (JSON Web Tokens)
+- **Password Security**: bcryptjs
+- **File Upload**: Multer + Cloudinary
+- **Environment**: dotenv
 
-## 🎨 Design
+## 🚀 Quick Start
 
-**Theme:** Baby pink, cute, soft, girly, warm, inviting
-
-**Color Palette:**
-- Primary (Baby Pink): `#FFB7C5`
-- Accent (Soft Rose): `#F4A3B3`
-- Background (Light Cream): `#FFF5F6`
-- Text (Deep Rose): `#774454`
-- Success (Mint): `#B2E0D4`
-- Error (Soft Red): `#E88A8A`
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **React Native** with **Expo** (~52.0.0)
-- **React Navigation** (Stack & Drawer)
-- **Socket.IO Client** for real-time messaging
-- **React Native Gifted Chat** for chat UI
-- **Axios** for API calls
-- **Expo Image Picker** for photo selection
-- **AsyncStorage** for local data persistence
-
-### Backend
-- **Node.js** with **Express**
-- **MongoDB** with **Mongoose** ODM
-- **Socket.IO** for WebSocket connections
-- **JWT** for authentication
-- **Bcrypt** for password hashing
-- **Multer** for file uploads
-- **Cloudinary** for image storage
-
-## 📦 Project Structure
-
-```
-hive/
-├── backend/                    # Node.js backend
-│   ├── config/
-│   │   ├── cloudinary.js      # Cloudinary configuration
-│   │   └── db.js              # MongoDB connection
-│   ├── middleware/
-│   │   ├── auth.js            # JWT authentication middleware
-│   │   └── upload.js          # Multer file upload configuration
-│   ├── models/
-│   │   ├── User.js            # User schema
-│   │   ├── Message.js         # Message schema
-│   │   └── Chat.js            # Chat schema
-│   ├── routes/
-│   │   ├── auth.js            # Authentication routes
-│   │   ├── users.js           # User management routes
-│   │   └── messages.js        # Messaging routes
-│   ├── server.js              # Main server file with Socket.IO
-│   ├── package.json
-│   ├── .env.example
-│   └── README.md
-│
-└── frontend/                   # React Native frontend
-    ├── src/
-    │   ├── config/
-    │   │   └── api.js         # API configuration
-    │   ├── navigation/
-    │   │   └── DrawerNavigator.js
-    │   └── screens/
-    │       ├── SplashScreen.js
-    │       ├── LoginScreen.js
-    │       ├── SignUpScreen.js
-    │       ├── HomeScreen.js
-    │       ├── EditProfileScreen.js
-    │       ├── UsersScreen.js
-    │       ├── FriendsScreen.js
-    │       ├── ChatsListScreen.js
-    │       ├── ChatScreen.js
-    │       └── CreateGroupScreen.js
-    ├── App.js
-    ├── app.json
-    ├── package.json
-    └── README.md
-```
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js (v20 or higher)
-- MongoDB Atlas account (free tier)
-- Cloudinary account (free tier)
-- Expo CLI: `npm install -g expo-cli`
-
-### Backend Setup
-
-1. Navigate to backend directory:
+### 1. Install Dependencies
 ```bash
 cd backend
-```
-
-2. Install dependencies:
-```bash
 npm install
 ```
 
-3. Create `.env` file:
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
 ```
 
-4. Configure environment variables in `.env`:
-```
-PORT=5000
-MONGODB_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_super_secret_jwt_key
-CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-```
+Then fill in your credentials for:
+- MongoDB Atlas connection string, or leave blank to use local MongoDB at `mongodb://127.0.0.1:27017/hive`
+- JWT secret
+- Cloudinary API keys (optional if you do not upload images)
 
-5. Start the server:
+See [BACKEND_SETUP.md](./BACKEND_SETUP.md) for detailed instructions.
+
+### 3. Run the Server
+
+Development mode (with auto-reload):
 ```bash
 npm run dev
 ```
 
-### Frontend Setup
-
-1. Navigate to frontend directory:
-```bash
-cd frontend
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Update API URL in `src/config/api.js`:
-```javascript
-export const API_URL = 'http://localhost:5000'; // or your deployed backend URL
-```
-
-4. Start Expo:
+Production mode:
 ```bash
 npm start
 ```
 
-5. Run on your preferred platform:
-- Press `i` for iOS Simulator
-- Press `a` for Android Emulator
-- Scan QR code with Expo Go app
+Server runs on `http://localhost:5000`
 
-## 🌐 Deployment
+## 📁 Project Structure
 
-### Backend Deployment (Render - Free Tier)
-
-1. Push code to GitHub
-2. Go to [Render](https://render.com/)
-3. Create new Web Service
-4. Connect GitHub repository
-5. Configure:
-   - Build Command: `npm install`
-   - Start Command: `npm start`
-   - Add environment variables
-6. Deploy!
-
-**Note:** Free tier sleeps after 15 minutes of inactivity (30-60s cold start on wake)
-
-### Frontend Deployment
-
-#### Build APK (Android)
-```bash
-eas build --platform android
+```
+backend/
+├── config/           # Configuration files
+│   ├── db.js         # MongoDB connection
+│   └── cloudinary.js # Cloudinary setup
+├── middleware/       # Express middleware
+│   ├── auth.js       # JWT authentication
+│   └── upload.js     # File upload handling
+├── models/           # Mongoose schemas
+│   ├── User.js       # User model with friends
+│   ├── Chat.js       # Chat/Group model
+│   └── Message.js    # Message model with reactions
+├── routes/           # API routes
+│   ├── auth.js       # Authentication endpoints
+│   ├── users.js      # User profile & friends
+│   └── messages.js   # Chat & messaging endpoints
+├── server.js         # Main server & Socket.IO
+├── package.json      # Dependencies
+├── .env             # Environment variables (create from .env.example)
+├── .env.example      # Template for environment variables
+└── README.md         # This file
 ```
 
-#### Build IPA (iOS)
-```bash
-eas build --platform ios
-```
-
-## 💰 Free Tier Limits
-
-- **MongoDB Atlas M0:** 512 MB storage (thousands of messages)
-- **Cloudinary:** 25 monthly credits (hundreds of images)
-- **Render:** 750 free hours/month (enough for one service)
-- **Total Cost:** $0/month for moderate usage
-
-## 📱 Screenshots & Demo
-
-### Key Screens
-1. **Splash Screen** - Animated baby pink splash with app logo
-2. **Login** - Email/mobile + password with show/hide toggle
-3. **Sign Up** - Real-time email validation (green/red indicators)
-4. **Home** - User profile with avatar, info cards, edit button
-5. **Edit Profile** - Update name, gender, profession, photo
-6. **Users** - Browse all users with "Add Friend" buttons
-7. **Friends** - Friends list with "Remove" option
-8. **Chats** - All conversations with last message preview
-9. **Chat** - Real-time messaging with reactions, replies, images
-10. **Create Group** - Select users and create group chats
-
-## 🔒 Security Features
-
-- JWT token authentication
-- Password hashing with bcrypt
-- Environment variables for secrets
-- CORS configuration
-- HTTPS enforced (on deployment)
-- Input validation
-- Protected API routes
-
-## 📚 API Documentation
+## 📚 API Endpoints
 
 ### Authentication
 - `POST /api/auth/signup` - Register new user
 - `POST /api/auth/login` - Login user
 
 ### Users
-- `GET /api/users/me` - Get current user
-- `PUT /api/users/profile` - Update profile
+- `GET /api/users/me` - Get current user profile
+- `PUT /api/users/profile` - Update user profile
 - `POST /api/users/profile/photo` - Upload profile photo
 - `GET /api/users/all` - Get all users
 - `POST /api/users/friends/:friendId` - Add friend
-- `GET /api/users/friends` - Get friends
+- `GET /api/users/friends` - Get friends list
 - `DELETE /api/users/friends/:friendId` - Remove friend
 
-### Messages
-- `POST /api/messages/chat` - Create/get chat
+### Messages & Chats
+- `POST /api/messages/chat` - Create or get chat
 - `GET /api/messages/chats/all` - Get all chats
-- `GET /api/messages/:chatId` - Get messages
-- `POST /api/messages/upload-image` - Upload image
-- `DELETE /api/messages/:messageId/delete-for-me` - Delete for me
-- `DELETE /api/messages/:messageId/delete-for-everyone` - Delete for everyone
+- `GET /api/messages/:chatId` - Get messages for a chat
+- `POST /api/messages/upload-image` - Upload image for message
+- `DELETE /api/messages/:messageId/delete-for-me` - Delete message for current user
+- `DELETE /api/messages/:messageId/delete-for-everyone` - Delete message for everyone
 
-### Socket.IO Events
-- `join_chat` - Join chat room
-- `send_message` - Send message
-- `receive_message` - Receive message
-- `add_reaction` - Add reaction
-- `reaction_updated` - Reaction updated
-- `typing` / `stop_typing` - Typing indicators
+## 🔌 Socket.IO Events
+
+### Client to Server (Emit)
+- `join_chat` - Join a chat room
+- `send_message` - Send a message with optional image/reply
+- `add_reaction` - Add emoji reaction to message
+- `typing` - Broadcast user is typing
+- `stop_typing` - Broadcast user stopped typing
+
+### Server to Client (Listen)
+- `receive_message` - Receive new message
+- `reaction_updated` - Message reaction updated
+- `user_typing` - Another user is typing
+- `user_stop_typing` - Another user stopped typing
+- `message_error` - Error sending message
+- `reaction_error` - Error adding reaction
+
+## 🔐 Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| PORT | Server port | 5000 |
+| MONGODB_URI | MongoDB connection string | `mongodb+srv://...` |
+| JWT_SECRET | Secret for JWT tokens | Random secure string |
+| CLOUDINARY_CLOUD_NAME | Cloudinary cloud name | `your_cloud_name` |
+| CLOUDINARY_API_KEY | Cloudinary API key | `123456789` |
+| CLOUDINARY_API_SECRET | Cloudinary API secret | Secret key |
+| NODE_ENV | Environment | development/production |
+
+## 🧪 Testing
+
+Use Postman to test the API:
+
+1. Set base URL to `http://localhost:5000`
+2. Test endpoints documented in API Endpoints section above
+3. Use tokens returned from login in Authorization headers
+
+See [BACKEND_SETUP.md](./BACKEND_SETUP.md#testing-the-api) for cURL examples.
+
+## 🚢 Deployment
+
+Ready to deploy to:
+- **Railway.app** ⭐ Recommended
+- **Render.com**
+- **Heroku**
+- **AWS**
+- **DigitalOcean**
+
+See [BACKEND_SETUP.md](./BACKEND_SETUP.md#deployment) for deployment instructions.
+
+## ⚠️ Security Notes
+
+- Never commit `.env` file to git
+- Keep `JWT_SECRET` secure and unique
+- Use HTTPS in production
+- Validate all user inputs
+- Consider adding rate limiting
+- Review Cloudinary API secret permissions
 
 ## 🐛 Troubleshooting
 
-### Backend won't start
-- Check MongoDB connection string
-- Verify all environment variables are set
-- Ensure port 5000 is not in use
+- **MongoDB Connection Error**: Verify connection string and IP whitelist
+- **Port Already in Use**: Change PORT in `.env`
+- **Cloudinary Upload Failed**: Check API credentials and file size (max 5MB)
+- **CORS Errors**: Update origin in `server.js` if needed
 
-### Frontend can't connect
-- Verify backend is running
-- Check API_URL in `src/config/api.js`
-- For Android emulator: use `http://10.0.2.2:5000`
-- For physical device: use your computer's IP address
+See [BACKEND_SETUP.md](./BACKEND_SETUP.md#troubleshooting) for more help.
 
-### Images not uploading
-- Verify Cloudinary credentials
-- Check file size limits (5MB max)
-- Ensure proper permissions for camera/gallery
+## 📖 Complete Documentation
 
-## 📖 Learning Outcomes
+For detailed setup instructions, API reference, and troubleshooting, see [BACKEND_SETUP.md](./BACKEND_SETUP.md).
 
-By building Hive, you'll learn:
-- React Native fundamentals and advanced patterns
-- Real-time communication with Socket.IO
-- RESTful API design with Express
-- MongoDB database modeling
-- JWT authentication
-- Image upload and cloud storage
-- Navigation patterns (Stack & Drawer)
-- State management in React
-- Async operations and promises
-- Deployment to cloud platforms
+## Free Tier Limitations
 
-## 🤝 Contributing
-
-This is a learning project. Feel free to fork and customize for your needs!
-
-## 📄 License
-
-MIT License - feel free to use this project for learning and personal projects.
-
-## 🙏 Acknowledgments
-
-- React Native & Expo teams
-- Socket.IO for real-time capabilities
-- MongoDB Atlas for free database hosting
-- Cloudinary for image storage
-- Render for free backend hosting
-
----
-
-**Built with ❤️ using React Native, Node.js, and MongoDB**
-
-**Tagline:** *"Connect Your Crew, Your Way."*
+- Render free tier: Service sleeps after 15 minutes of inactivity
+- MongoDB Atlas M0: 512 MB storage
+- Cloudinary free: 25 monthly credits
