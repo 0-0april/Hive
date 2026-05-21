@@ -17,10 +17,32 @@ router.get('/me', auth, async (req, res) => {
 // Update user profile
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { fullName, gender, profession } = req.body;
+    const { fullName, username, email, gender, profession } = req.body;
     
     const updateData = {};
     if (fullName) updateData.fullName = fullName;
+    if (username) {
+      // Check if username is already taken by another user
+      const existingUser = await User.findOne({ 
+        username, 
+        _id: { $ne: req.userId } 
+      });
+      if (existingUser) {
+        return res.status(400).json({ error: 'Username already taken' });
+      }
+      updateData.username = username;
+    }
+    if (email) {
+      // Check if email is already taken by another user
+      const existingUser = await User.findOne({ 
+        email, 
+        _id: { $ne: req.userId } 
+      });
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already registered' });
+      }
+      updateData.email = email;
+    }
     if (gender !== undefined) updateData.gender = gender;
     if (profession !== undefined) updateData.profession = profession;
 
@@ -86,6 +108,29 @@ router.get('/all', auth, async (req, res) => {
   }
 });
 
+// Search users by username (Requirement 8)
+router.get('/search', auth, async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query) {
+      return res.json([]);
+    }
+
+    const users = await User.find({
+      _id: { $ne: req.userId },
+      username: { $regex: query, $options: 'i' }
+    })
+      .select('-password')
+      .limit(20)
+      .sort({ username: 1 });
+    
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Add friend
 router.post('/friends/:friendId', auth, async (req, res) => {
   try {
@@ -130,6 +175,40 @@ router.delete('/friends/:friendId', auth, async (req, res) => {
     await user.save();
 
     res.json({ message: 'Friend removed' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get users with existing conversations (Requirement 7)
+router.get('/conversations', auth, async (req, res) => {
+  try {
+    const Chat = require('../models/Chat');
+    
+    // Find all chats where user is a participant
+    const chats = await Chat.find({
+      participants: req.userId,
+      isGroup: false
+    }).populate('participants', '_id fullName username profilePhoto');
+
+    // Extract unique users from conversations
+    const usersMap = new Map();
+    
+    chats.forEach(chat => {
+      chat.participants.forEach(participant => {
+        if (participant._id.toString() !== req.userId) {
+          usersMap.set(participant._id.toString(), {
+            _id: participant._id,
+            fullName: participant.fullName,
+            username: participant.username,
+            profilePhoto: participant.profilePhoto
+          });
+        }
+      });
+    });
+
+    const users = Array.from(usersMap.values());
+    res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

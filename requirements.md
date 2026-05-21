@@ -174,3 +174,34 @@ All these are **frontend-only mock simulations** with persistent storage via Asy
 
 Expo SDK version: 54
 Expo Go version: 54.0.6
+
+
+
+### Requirements to be Implemented
+0. it should allow users ro login and signup using credentials. make sure you use encryption for its password.
+
+1. the user should be able to show/hide the typed password in the login screen
+2. always check the database connections every action. In the frontend/src/screens/ChatScreens.js, there shouldn't be repeated cards for users that was messaged. it should list down the names of the users or group names and its latest message and its time that it was sent only and their icons or images.
+
+3. in the PeopleScreen.js, the logged in user should have access to the list of users through matched username on the serach bar. but it initially displays the users that is already added/messaged on the app.
+
+4. in the ProfileScreen.js, when the logged in user signs out, it should display the login page directly.
+
+5. in the EditProfileScreen.js, the logged it user should be allowed to modify their names, usernames and email. 
+
+
+6. in the ChatsScreen.js, the message that was sent by a user(sender) should be visible to the users(receiver) forever. make sure it works on all the list of the user in the database. and also the new and unread message should be highlighted so the logged in user know when there is a new message received from the other user.
+
+7. the list of people should be only be visible when there is an existing conversation between the logged in user and the user displayed in the people. this exclude the people who have the same groupchat.
+
+8. the user should be able to search for an existing/registered users (only) through usernames in the people part and enable to send them chats. 
+
+9. it shouldn't allow simple passwords when signing up new accounts, it should have at least 8 characters with number and special characters
+
+10. make sure this project runs on local storage but it also records all the inputed data through its UI when it was used instead of just disappearing.
+
+11. do not change the UI unless i told you to do so. just change the logic and database connection to make it reasonable for the user.
+
+
+
+12. the sign up for new user should confirm the password instead of asking it once, they should match as well

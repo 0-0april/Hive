@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,28 +6,92 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { useChat } from '../context/ChatContext';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
+import { useFocusEffect } from '@react-navigation/native';
+import { API_URL } from '../config/api';
 
 const PeopleScreen = ({ navigation }) => {
-  const { currentUser, mockUsers } = useAuth();
-  const { startPrivateChat } = useChat();
+  const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [users, setUsers] = useState([]);
+  const [conversationUsers, setConversationUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
 
-  // Filter users (exclude current user)
-  const filteredUsers = mockUsers.filter(
-    (user) =>
-      user.id !== currentUser.id &&
-      user.username.toLowerCase().includes(searchQuery.toLowerCase())
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchConversationUsers();
+    }, [])
   );
 
+  // Fetch users with existing conversations (Requirement 7)
+  const fetchConversationUsers = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/users/conversations`);
+      setConversationUsers(response.data);
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching conversation users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Search users by username (Requirement 8)
+  const searchUsers = async (query) => {
+    if (!query.trim()) {
+      setUsers(conversationUsers);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const response = await axios.get(`${API_URL}/users/search`, {
+        params: { query: query.trim() }
+      });
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error searching users:', error);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchUsers(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const handleStartChat = async (userId) => {
-    const result = await startPrivateChat(userId);
-    if (result.success) {
-      navigation.navigate('Chat', { conversationId: result.conversationId });
+    if (!currentUser) return;
+    
+    try {
+      // Create or get existing chat
+      const response = await axios.post(`${API_URL}/messages/chat`, {
+        participantIds: [userId],
+        isGroup: false
+      });
+
+      const chat = response.data;
+      
+      navigation.navigate('Chat', {
+        chatId: chat.chatId,
+        chatName: chat.participants.find(p => p._id !== currentUser._id)?.fullName || 'Chat',
+        isGroup: false
+      });
+    } catch (error) {
+      console.error('Error starting chat:', error);
     }
   };
 
@@ -44,7 +108,7 @@ const PeopleScreen = ({ navigation }) => {
 
       <TouchableOpacity
         style={styles.chatButton}
-        onPress={() => handleStartChat(item.id)}
+        onPress={() => handleStartChat(item._id)}
       >
         <Ionicons name="chatbubble" size={20} color={colors.white} />
         <Text style={styles.chatButtonText}>Chat</Text>
@@ -52,8 +116,20 @@ const PeopleScreen = ({ navigation }) => {
     </View>
   );
 
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={colors.darkGray} style={styles.searchIcon} />
         <TextInput
@@ -64,34 +140,55 @@ const PeopleScreen = ({ navigation }) => {
           onChangeText={setSearchQuery}
           autoCapitalize="none"
         />
-        {searchQuery.length > 0 && (
+        {searching && <ActivityIndicator size="small" color={colors.primary} />}
+        {searchQuery.length > 0 && !searching && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
             <Ionicons name="close-circle" size={20} color={colors.darkGray} />
           </TouchableOpacity>
         )}
       </View>
 
+      <View style={styles.infoContainer}>
+        <Ionicons name="information-circle-outline" size={16} color={colors.text} />
+        <Text style={styles.infoText}>
+          {searchQuery 
+            ? 'Search results for registered users' 
+            : 'Showing users you have conversations with'}
+        </Text>
+      </View>
+
       <FlatList
-        data={filteredUsers}
+        data={users}
         renderItem={renderUser}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={80} color={colors.gray} />
             <Text style={styles.emptyText}>
-              {searchQuery ? 'No users found' : 'No users available'}
+              {searchQuery ? 'No users found' : 'No conversations yet'}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery 
+                ? 'Try searching with a different username' 
+                : 'Search for users to start chatting'}
             </Text>
           </View>
         }
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: colors.background,
   },
   searchContainer: {
@@ -112,6 +209,21 @@ const styles = StyleSheet.create({
     height: 45,
     fontSize: fontSize.md,
     color: colors.text,
+  },
+  infoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.lightGray,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    padding: spacing.sm,
+    borderRadius: borderRadius.sm,
+  },
+  infoText: {
+    fontSize: fontSize.xs,
+    color: colors.text,
+    marginLeft: spacing.xs,
+    flex: 1,
   },
   listContainer: {
     flexGrow: 1,
@@ -174,6 +286,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
     marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: fontSize.sm,
+    color: colors.darkGray,
+    marginTop: spacing.sm,
     textAlign: 'center',
   },
 });

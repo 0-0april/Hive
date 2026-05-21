@@ -8,72 +8,127 @@ import {
   StyleSheet,
   Modal,
   Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useChat } from '../context/ChatContext';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
+import { API_URL } from '../config/api';
+import io from 'socket.io-client';
 
 const EMOJIS = ['❤️', '👍', '😂', '😮', '😢'];
 
 const ChatScreen = ({ route, navigation }) => {
-  const { conversationId } = route.params;
-  const { getConversation, addMessage, addReaction } = useChat();
-  const { currentUser, mockUsers } = useAuth();
+  const { chatId, chatName, isGroup } = route.params;
+  const { currentUser } = useAuth();
   
+  const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [loading, setLoading] = useState(true);
   const flatListRef = useRef(null);
-
-  const conversation = getConversation(conversationId);
+  const socketRef = useRef(null);
 
   useEffect(() => {
-    if (conversation) {
-      // Set header title
-      const title = getConversationName();
-      navigation.setOptions({ title });
-    }
-  }, [conversation]);
+    navigation.setOptions({ title: chatName || 'Chat' });
+    fetchMessages();
+    markMessagesAsRead();
+    setupSocket();
 
-  const getConversationName = () => {
-    if (!conversation) return 'Chat';
-    
-    if (conversation.type === 'group') {
-      return conversation.name;
-    }
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, [chatId]);
 
-    const otherUserId = conversation.participants.find(
-      (id) => id !== currentUser.id
-    );
-    const otherUser = mockUsers.find((u) => u.id === otherUserId);
-    return otherUser ? otherUser.fullName : 'Chat';
-  };
+  const setupSocket = () => {
+    const socket = io(API_URL.replace('/api', ''));
+    socketRef.current = socket;
 
-  const getUserName = (userId) => {
-    if (userId === currentUser.id) return 'You';
-    const user = mockUsers.find((u) => u.id === userId);
-    return user ? user.fullName : 'Unknown';
-  };
+    socket.on('connect', () => {
+      console.log('Socket connected');
+      socket.emit('join_chat', chatId);
+    });
 
-  const handleSend = async () => {
-    if (!message.trim()) return;
-
-    const result = await addMessage(
-      conversationId,
-      message.trim(),
-      replyTo?.id || null
-    );
-
-    if (result.success) {
-      setMessage('');
-      setReplyTo(null);
-      // Scroll to bottom
+    socket.on('receive_message', (newMessage) => {
+      setMessages((prev) => [...prev, newMessage]);
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
+    });
+
+    socket.on('message_read', (data) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === data.messageId
+            ? {
+                ...msg,
+                readBy: [...msg.readBy, { userId: data.userId, readAt: data.readAt }],
+              }
+            : msg
+        )
+      );
+    });
+
+    socket.on('reaction_updated', (updatedMessage) => {
+      setMessages((prev) =>
+        prev.map((msg) => (msg._id === updatedMessage._id ? updatedMessage : msg))
+      );
+    });
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/messages/${chatId}`);
+      setMessages(response.data);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      if (error.response?.status !== 404) {
+        Alert.alert('Error', 'Failed to load messages');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markMessagesAsRead = async () => {
+    try {
+      await axios.post(`${API_URL}/messages/${chatId}/mark-read`);
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  };
+
+  const getUserName = (senderId) => {
+    if (!currentUser) return 'Unknown';
+    if (senderId._id === currentUser._id) return 'You';
+    return senderId.fullName || 'Unknown';
+  };
+
+  const handleSend = async () => {
+    if (!message.trim() || !currentUser) return;
+
+    try {
+      socketRef.current?.emit('send_message', {
+        chatId,
+        senderId: currentUser._id,
+        content: message.trim(),
+        messageType: 'text',
+        replyTo: replyTo?._id || null,
+      });
+
+      setMessage('');
+      setReplyTo(null);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      Alert.alert('Error', 'Failed to send message');
     }
   };
 
@@ -92,20 +147,24 @@ const ChatScreen = ({ route, navigation }) => {
     setShowEmojiPicker(true);
   };
 
-  const handleEmojiSelect = async (emoji) => {
-    await addReaction(conversationId, selectedMessage.id, emoji);
+  const handleEmojiSelect = (emoji) => {
+    if (selectedMessage && socketRef.current && currentUser) {
+      socketRef.current.emit('add_reaction', {
+        messageId: selectedMessage._id,
+        userId: currentUser._id,
+        emoji,
+      });
+    }
     setShowEmojiPicker(false);
     setSelectedMessage(null);
   };
 
-  const getRepliedMessage = (replyToId) => {
-    return conversation.messages.find((m) => m.id === replyToId);
-  };
-
   const renderMessage = ({ item }) => {
-    const isMe = item.senderId === currentUser.id;
-    const repliedMsg = item.replyToId ? getRepliedMessage(item.replyToId) : null;
-    const reactions = Object.entries(item.reactions || {});
+    if (!currentUser) return null;
+    
+    const isMe = item.senderId._id === currentUser._id;
+    const isRead = item.readBy?.some((r) => r.userId !== currentUser._id);
+    const reactions = item.reactions || [];
 
     return (
       <TouchableOpacity
@@ -113,19 +172,19 @@ const ChatScreen = ({ route, navigation }) => {
         onLongPress={() => handleLongPress(item)}
         activeOpacity={0.7}
       >
-        {conversation.type === 'group' && !isMe && (
+        {isGroup && !isMe && (
           <Text style={styles.senderName}>{getUserName(item.senderId)}</Text>
         )}
 
-        {repliedMsg && (
+        {item.replyTo && (
           <View style={styles.replyPreview}>
             <View style={styles.replyLine} />
             <View style={styles.replyContent}>
               <Text style={styles.replyName}>
-                {getUserName(repliedMsg.senderId)}
+                {item.replyTo.senderId?.fullName || 'Unknown'}
               </Text>
               <Text style={styles.replyText} numberOfLines={1}>
-                {repliedMsg.text}
+                {item.replyTo.content}
               </Text>
             </View>
           </View>
@@ -133,47 +192,72 @@ const ChatScreen = ({ route, navigation }) => {
 
         <View style={[styles.messageBubble, isMe && styles.myMessageBubble]}>
           <Text style={[styles.messageText, isMe && styles.myMessageText]}>
-            {item.text}
+            {item.content}
           </Text>
         </View>
 
         {reactions.length > 0 && (
           <View style={[styles.reactionsContainer, isMe && styles.myReactionsContainer]}>
-            {reactions.map(([userId, emoji]) => (
-              <View key={userId} style={styles.reactionBubble}>
-                <Text style={styles.reactionEmoji}>{emoji}</Text>
+            {reactions.map((reaction, index) => (
+              <View key={index} style={styles.reactionBubble}>
+                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
               </View>
             ))}
           </View>
         )}
 
-        <Text style={[styles.messageTime, isMe && styles.myMessageTime]}>
-          {new Date(item.createdAt).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </Text>
+        <View style={styles.messageFooter}>
+          <Text style={[styles.messageTime, isMe && styles.myMessageTime]}>
+            {new Date(item.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </Text>
+          {isMe && (
+            <View style={styles.checkmarkContainer}>
+              {isRead ? (
+                <View style={styles.doubleCheck}>
+                  <Ionicons name="checkmark" size={16} color={colors.primary} style={styles.checkmark1} />
+                  <Ionicons name="checkmark" size={16} color={colors.primary} style={styles.checkmark2} />
+                </View>
+              ) : (
+                <Ionicons name="checkmark" size={16} color={colors.white} />
+              )}
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
     );
   };
 
-  if (!conversation) {
+  if (loading) {
     return (
-      <View style={styles.container}>
-        <Text>Conversation not found</Text>
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       <FlatList
         ref={flatListRef}
-        data={conversation.messages}
+        data={messages}
         renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         contentContainerStyle={styles.messagesList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="chatbubble-outline" size={60} color={colors.gray} />
+            <Text style={styles.emptyText}>No messages yet</Text>
+            <Text style={styles.emptySubtext}>Start the conversation!</Text>
+          </View>
+        }
       />
 
       {replyTo && (
@@ -185,7 +269,7 @@ const ChatScreen = ({ route, navigation }) => {
                 Replying to {getUserName(replyTo.senderId)}
               </Text>
               <Text style={styles.replyBarMessage} numberOfLines={1}>
-                {replyTo.text}
+                {replyTo.content}
               </Text>
             </View>
           </View>
@@ -203,6 +287,7 @@ const ChatScreen = ({ route, navigation }) => {
           value={message}
           onChangeText={setMessage}
           multiline
+          maxLength={1000}
         />
         <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
           <Ionicons name="send" size={24} color={colors.white} />
@@ -268,7 +353,7 @@ const ChatScreen = ({ route, navigation }) => {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -277,8 +362,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
   messagesList: {
     padding: spacing.md,
+    flexGrow: 1,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  emptyText: {
+    fontSize: fontSize.lg,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginTop: spacing.md,
+  },
+  emptySubtext: {
+    fontSize: fontSize.sm,
+    color: colors.darkGray,
+    marginTop: spacing.sm,
   },
   messageContainer: {
     marginBottom: spacing.md,
@@ -353,13 +462,34 @@ const styles = StyleSheet.create({
   reactionEmoji: {
     fontSize: 16,
   },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
   messageTime: {
     fontSize: fontSize.xs,
     color: colors.darkGray,
-    marginTop: spacing.xs,
   },
   myMessageTime: {
     textAlign: 'right',
+  },
+  checkmarkContainer: {
+    marginLeft: spacing.xs,
+  },
+  doubleCheck: {
+    flexDirection: 'row',
+    position: 'relative',
+    width: 20,
+    height: 16,
+  },
+  checkmark1: {
+    position: 'absolute',
+    left: 0,
+  },
+  checkmark2: {
+    position: 'absolute',
+    left: 4,
   },
   replyBar: {
     flexDirection: 'row',

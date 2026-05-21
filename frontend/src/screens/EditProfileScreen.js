@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,17 @@ import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 
 const EditProfileScreen = ({ navigation }) => {
   const { currentUser, updateProfile } = useAuth();
-  const [fullName, setFullName] = useState(currentUser.fullName);
+  const [fullName, setFullName] = useState(currentUser?.fullName || '');
+  const [username, setUsername] = useState(currentUser?.username || '');
+  const [email, setEmail] = useState(currentUser?.email || '');
   const [loading, setLoading] = useState(false);
+
+  // Redirect if no user
+  useEffect(() => {
+    if (!currentUser) {
+      navigation.goBack();
+    }
+  }, [currentUser]);
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -23,8 +32,29 @@ const EditProfileScreen = ({ navigation }) => {
       return;
     }
 
+    if (!username.trim()) {
+      Alert.alert('Error', 'Username cannot be empty');
+      return;
+    }
+
+    if (!email.trim()) {
+      Alert.alert('Error', 'Email cannot be empty');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
     setLoading(true);
-    const result = await updateProfile({ fullName: fullName.trim() });
+    const result = await updateProfile({ 
+      fullName: fullName.trim(),
+      username: username.trim().toLowerCase(),
+      email: email.trim().toLowerCase()
+    });
     setLoading(false);
 
     if (result.success) {
@@ -41,6 +71,10 @@ const EditProfileScreen = ({ navigation }) => {
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
+      enableOnAndroid={true}
+      enableAutomaticScroll={true}
+      extraScrollHeight={100}
+      extraHeight={120}
     >
       <View style={styles.avatarContainer}>
         <View style={styles.avatar}>
@@ -61,23 +95,30 @@ const EditProfileScreen = ({ navigation }) => {
           />
         </View>
 
-        <Text style={styles.label}>Username (Non-editable)</Text>
-        <View style={[styles.inputContainer, styles.disabledInput]}>
-          <Ionicons name="at-outline" size={20} color={colors.darkGray} style={styles.icon} />
+        <Text style={styles.label}>Username</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons name="at-outline" size={20} color={colors.text} style={styles.icon} />
           <TextInput
-            style={[styles.input, styles.disabledText]}
-            value={`@${currentUser.username}`}
-            editable={false}
+            style={styles.input}
+            placeholder="Username"
+            placeholderTextColor={colors.darkGray}
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
           />
         </View>
 
-        <Text style={styles.label}>Email (Non-editable)</Text>
-        <View style={[styles.inputContainer, styles.disabledInput]}>
-          <Ionicons name="mail-outline" size={20} color={colors.darkGray} style={styles.icon} />
+        <Text style={styles.label}>Email</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons name="mail-outline" size={20} color={colors.text} style={styles.icon} />
           <TextInput
-            style={[styles.input, styles.disabledText]}
-            value={currentUser.email}
-            editable={false}
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor={colors.darkGray}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
         </View>
 
@@ -94,7 +135,7 @@ const EditProfileScreen = ({ navigation }) => {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={20} color={colors.text} />
           <Text style={styles.infoText}>
-            Only your full name can be edited. Username and email are permanent.
+            You can update your full name, username, and email address.
           </Text>
         </View>
       </View>
@@ -110,6 +151,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
     padding: spacing.lg,
+    paddingBottom: 40,
   },
   avatarContainer: {
     alignItems: 'center',
