@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { API_URL } from '../config/api';
+
 import {
   View,
   Text,
@@ -7,6 +10,8 @@ import {
   FlatList,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -14,19 +19,37 @@ import { useChat } from '../context/ChatContext';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 
 const NewGroupScreen = ({ navigation }) => {
-  const { currentUser, mockUsers } = useAuth();
+  const { currentUser } = useAuth();
   const { createGroup } = useChat();
-  
+
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUsers, setSelectedUsers] = useState([]);
+  const [contactUsers, setContactUsers] = useState([]);
 
-  // Filter users (exclude current user)
-  const availableUsers = mockUsers.filter(
-    (user) =>
-      user.id !== currentUser.id &&
-      user.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Fetch only users the current user has conversed with
+  useEffect(() => {
+    const fetchConversedUsers = async () => {
+      if (!currentUser) return;
+      try {
+        const response = await axios.get(`${API_URL}/users/conversations`);
+        setContactUsers(response.data);
+      } catch (error) {
+        console.error('Error fetching contacts:', error);
+      }
+    };
+    fetchConversedUsers();
+  }, [currentUser]);
+
+  // Filter users (exclude current user) with null checks
+  const availableUsers =
+    currentUser && contactUsers
+      ? contactUsers.filter(
+          (user) =>
+            user._id !== currentUser._id &&
+            user.username.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : [];
 
   const toggleUserSelection = (userId) => {
     if (selectedUsers.includes(userId)) {
@@ -54,8 +77,22 @@ const NewGroupScreen = ({ navigation }) => {
         {
           text: 'OK',
           onPress: () => {
-            navigation.goBack();
-            navigation.navigate('Chat', { conversationId: result.conversationId });
+            // Reset navigation so ChatsScreen re-fetches and shows the new group,
+            // then land directly inside the new group chat
+            navigation.reset({
+              index: 1,
+              routes: [
+                { name: 'MainTabs' },
+                {
+                  name: 'Chat',
+                  params: {
+                    chatId: result.chatId,
+                    chatName: result.chatName,
+                    isGroup: true,
+                  },
+                },
+              ],
+            });
           },
         },
       ]);
@@ -65,14 +102,14 @@ const NewGroupScreen = ({ navigation }) => {
   };
 
   const renderUser = ({ item }) => {
-    const isSelected = selectedUsers.includes(item.id);
+    const isSelected = selectedUsers.includes(item._id);
 
     return (
       <TouchableOpacity
         style={styles.userItem}
-        onPress={() => toggleUserSelection(item.id)}
+        onPress={() => toggleUserSelection(item._id)}
       >
-        <View style={styles.checkbox}>
+        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
           {isSelected && (
             <Ionicons name="checkmark" size={20} color={colors.white} />
           )}
@@ -93,7 +130,11 @@ const NewGroupScreen = ({ navigation }) => {
   const canCreate = groupName.trim() && selectedUsers.length >= 2;
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Create New Group</Text>
         <Text style={styles.headerSubtitle}>
@@ -143,8 +184,9 @@ const NewGroupScreen = ({ navigation }) => {
       <FlatList
         data={availableUsers}
         renderItem={renderUser}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContainer}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={60} color={colors.gray} />
@@ -167,7 +209,7 @@ const NewGroupScreen = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -243,10 +285,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: colors.primary,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
+  },
+  checkboxSelected: {
+    backgroundColor: colors.primary,
   },
   avatarContainer: {
     width: 40,

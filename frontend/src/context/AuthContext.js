@@ -1,12 +1,12 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import axios from 'axios';
 import { saveUser, getUser, removeUser } from '../utils/storage';
-import { initialMockUsers } from '../mock/data';
+import { API_URL } from '../config/api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [mockUsers, setMockUsers] = useState(initialMockUsers);
   const [loading, setLoading] = useState(true);
 
   // Load user from storage on app start
@@ -16,9 +16,11 @@ export const AuthProvider = ({ children }) => {
 
   const loadUserFromStorage = async () => {
     try {
-      const user = await getUser();
-      if (user) {
-        setCurrentUser(user);
+      const userData = await getUser();
+      if (userData && userData.token) {
+        // Set axios default header
+        axios.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
+        setCurrentUser(userData.user);
       }
     } catch (error) {
       console.error('Error loading user:', error);
@@ -28,56 +30,66 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Login function
-  const login = async (email, password) => {
+  const login = async (emailOrMobile, password) => {
     try {
-      // Check against mock users
-      const user = mockUsers.find(
-        (u) => u.email === email && u.password === password
-      );
+      console.log('=== LOGIN ATTEMPT ===');
+      console.log('API URL:', API_URL);
+      console.log('Email/Mobile:', emailOrMobile);
+      console.log('Password length:', password?.length);
 
-      if (user) {
-        const { password, ...userWithoutPassword } = user;
-        setCurrentUser(userWithoutPassword);
-        await saveUser(userWithoutPassword);
-        return { success: true };
-      } else {
-        return { success: false, message: 'Invalid email or password' };
-      }
+      const response = await axios.post(`${API_URL}/auth/login`, {
+        emailOrMobile,
+        password
+      });
+
+      console.log('Login response received:', response.status);
+      const { token, user } = response.data;
+      
+      // Set axios default header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Save to storage
+      await saveUser({ token, user });
+      
+      setCurrentUser(user);
+      console.log('Login successful for user:', user.username);
+      return { success: true };
     } catch (error) {
-      return { success: false, message: 'Login failed' };
+      console.error('=== LOGIN ERROR ===');
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
+      console.error('Error message:', error.message);
+      console.error('API URL used:', API_URL);
+      const message = error.response?.data?.error || 'Login failed. Please try again.';
+      return { success: false, message };
     }
   };
 
   // Sign up function
-  const signup = async (fullName, username, email, password) => {
+  const signup = async (fullName, username, email, mobileNumber, password) => {
     try {
-      // Check if username already exists
-      const usernameExists = mockUsers.some((u) => u.username === username);
-      if (usernameExists) {
-        return { success: false, message: 'Username already taken' };
-      }
+      console.log('=== SIGNUP ATTEMPT ===');
+      console.log('API URL:', API_URL);
+      console.log('Data:', { fullName, username, email, mobileNumber, passwordLength: password?.length });
 
-      // Check if email already exists
-      const emailExists = mockUsers.some((u) => u.email === email);
-      if (emailExists) {
-        return { success: false, message: 'Email already registered' };
-      }
-
-      // Create new user
-      const newUser = {
-        id: `u${Date.now()}`,
+      const response = await axios.post(`${API_URL}/auth/signup`, {
         fullName,
         username,
         email,
-        password,
-      };
+        mobileNumber,
+        password
+      });
 
-      // Add to mock users
-      setMockUsers([...mockUsers, newUser]);
-
-      return { success: true, message: 'Registered successfully' };
+      console.log('Signup response:', response.status, response.data);
+      return { success: true, message: response.data.message || 'Registered successfully' };
     } catch (error) {
-      return { success: false, message: 'Registration failed' };
+      console.error('=== SIGNUP ERROR ===');
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
+      console.error('Error message:', error.message);
+      console.error('API URL used:', API_URL);
+      const message = error.response?.data?.error || 'Registration failed. Please try again.';
+      return { success: false, message };
     }
   };
 
@@ -85,6 +97,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       setCurrentUser(null);
+      delete axios.defaults.headers.common['Authorization'];
       await removeUser();
     } catch (error) {
       console.error('Error logging out:', error);
@@ -94,24 +107,25 @@ export const AuthProvider = ({ children }) => {
   // Update user profile
   const updateProfile = async (updates) => {
     try {
-      const updatedUser = { ...currentUser, ...updates };
-      setCurrentUser(updatedUser);
-      await saveUser(updatedUser);
+      const response = await axios.put(`${API_URL}/users/profile`, updates);
       
-      // Update in mock users list
-      setMockUsers(mockUsers.map(u => 
-        u.id === updatedUser.id ? { ...u, ...updates } : u
-      ));
+      const updatedUser = response.data;
+      setCurrentUser(updatedUser);
+      
+      // Update storage with new user data
+      const userData = await getUser();
+      await saveUser({ ...userData, user: updatedUser });
       
       return { success: true };
     } catch (error) {
-      return { success: false, message: 'Update failed' };
+      console.error('Update profile error:', error);
+      const message = error.response?.data?.error || 'Update failed. Please try again.';
+      return { success: false, message };
     }
   };
 
   const value = {
     currentUser,
-    mockUsers,
     loading,
     login,
     signup,

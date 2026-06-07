@@ -25,6 +25,15 @@ const ProfileScreen = ({ navigation }) => {
     );
   };
 
+  // Handle case when currentUser is null
+  if (!currentUser) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Loading user data...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -188,6 +197,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.darkGray,
     marginTop: spacing.xs,
+  },
+  errorText: {
+    fontSize: fontSize.md,
+    color: colors.darkGray,
+    textAlign: 'center',
+    marginTop: spacing.xl,
   },
 });
 

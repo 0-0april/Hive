@@ -40,6 +40,16 @@ const messageSchema = new mongoose.Schema({
     ref: 'Message'
   },
   reactions: [reactionSchema],
+  readBy: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    readAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   deletedFor: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

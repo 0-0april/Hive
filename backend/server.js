@@ -24,6 +24,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Debug log
+app.use((req, res, next) => {
+  console.log('SERVER HIT:', req.method, req.originalUrl);
+  next();
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
@@ -61,7 +67,7 @@ io.on('connection', (socket) => {
       await message.save();
       
       const populatedMessage = await Message.findById(message._id)
-        .populate('senderId', 'fullName profilePhoto')
+        .populate('senderId', 'fullName username profilePhoto')
         .populate('replyTo');
 
       // Update chat's last message
@@ -81,6 +87,39 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Mark message as read
+  socket.on('mark_read', async (data) => {
+    try {
+      const { messageId, userId } = data;
+
+      const message = await Message.findById(messageId);
+      if (!message) {
+        return socket.emit('read_error', { error: 'Message not found' });
+      }
+
+      const alreadyRead = message.readBy.some(
+        r => r.userId.toString() === userId
+      );
+
+      if (!alreadyRead) {
+        message.readBy.push({
+          userId,
+          readAt: new Date()
+        });
+        await message.save();
+
+        io.to(message.chatId).emit('message_read', {
+          messageId,
+          userId,
+          readAt: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      socket.emit('read_error', { error: error.message });
+    }
+  });
+
   // Add reaction
   socket.on('add_reaction', async (data) => {
     try {
@@ -91,17 +130,15 @@ io.on('connection', (socket) => {
         return socket.emit('reaction_error', { error: 'Message not found' });
       }
 
-      // Remove existing reaction from this user
       message.reactions = message.reactions.filter(
         r => r.userId.toString() !== userId
       );
 
-      // Add new reaction
       message.reactions.push({ userId, emoji });
       await message.save();
 
       const populatedMessage = await Message.findById(message._id)
-        .populate('senderId', 'fullName profilePhoto')
+        .populate('senderId', 'fullName username profilePhoto')
         .populate('replyTo');
 
       io.to(message.chatId).emit('reaction_updated', populatedMessage);
